@@ -1,0 +1,6 @@
+{:greenhouse/postgres {:server-name "localhost"
+                       :database-name "greenhouse"
+                       :pool-name "server-service-pool"
+                       :maximum-pool-size 10
+                       :username "greendev"
+                       :password "green"}}
