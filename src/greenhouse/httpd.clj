@@ -34,17 +34,34 @@
      :tags ["root"]
      (POST "/account" []
        :body [req {:name s/Str}]
-       (let [{:keys [status data]} (bank-api/in-transaction (:database config)
-                                                            bank-api/create-account
-                                                            {:account req})]
+       (let [{:keys [status data] :as response} (bank-api/in-transaction (:database config)
+                                                                         bank-api/create-account
+                                                                         {:account req})]
          (if (= status :ok)
            (response/ok (-> (:account data)
                             (select-keys [:id :name :balance])
                             (set/rename-keys {:id :account-number})))
-           (response/bad-request (:error-msg data)))))
+           (response/bad-request (:error-msg response)))))
      (GET "/account/:id" []
        :path-params [id :- s/Int]
-       (response/ok {:result (util/dbg id)})))))
+       (let [{:keys [status data] :as response} (bank-api/in-transaction (:database config)
+                                                                         bank-api/view-account
+                                                                         {:account {:id id}})]
+         (if (= status :ok)
+           (response/ok (-> (:account data)
+                            (select-keys [:id :name :balance])
+                            (set/rename-keys {:id :account-number})))
+           (response/bad-request (:error-msg response)))))
+     (POST "/account/:id/deposit" []
+       :path-params [id :- s/Int]
+       (let [{:keys [status data] :as response} (bank-api/in-transaction (:database config)
+                                                                         bank-api/deposit
+                                                                         {:account {:id id}})]
+         (if (= status :ok)
+           (response/ok (-> (:account data)
+                            (select-keys [:id :name :balance])
+                            (set/rename-keys {:id :account-number})))
+           (response/bad-request (:error-msg response))))))))
 
 (defmethod ig/init-key :greenhouse/httpd
   [_ {:keys [port] :as config}]
