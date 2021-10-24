@@ -11,13 +11,14 @@ create table bank.accounts (
 -- and is the sum total of all credits and debits recorded in the account_transactions
 -- table after the last opening balance was computed.
 -- note that this is not actual account balance at any given point in time.
--- for an updated account balance use the `amount` from this table and add/subtract all the
+-- for an updated account balance use the `amount` from the `latest`` row and add/subtract all the
 -- transactions that come after that `balance_date`
 -- Note: a zero amount opening balance is created when a new account is created.
 create table bank.account_opening_balances (
   account_id bigint not null references bank.accounts(account_id),
   balance_date timestamptz not null default now(),
   amount float not null,
+  latest boolean not null default true,
   primary key (account_id, balance_date)
 );
 

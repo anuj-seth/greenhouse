@@ -3,4 +3,6 @@
                        :pool-name "server-service-pool"
                        :maximum-pool-size 10
                        :username "greendev"
-                       :password "green"}}
+                       :password "green"}
+ :greenhouse/httpd {:port 3000
+                    :database #ig/ref :greenhouse/postgres}}
