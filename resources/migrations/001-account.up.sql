@@ -13,9 +13,10 @@ create table bank.accounts (
 -- note that this is not actual account balance at any given point in time.
 -- for an updated account balance use the `amount` from this table and add/subtract all the
 -- transactions that come after that `balance_date`
+-- Note: a zero amount opening balance is created when a new account is created.
 create table bank.account_opening_balances (
   account_id bigint not null references bank.accounts(account_id),
-  balance_date date not null,
+  balance_date timestamptz not null default now(),
   amount float not null,
   primary key (account_id, balance_date)
 );

@@ -13,10 +13,16 @@
                  [clojure.java-time "0.3.2"]
                  [camel-snake-kebab "0.4.2"]
                  [org.clojure/tools.logging "1.1.0"]
-                 [ch.qos.logback/logback-classic "1.2.3" :exclusions [org.slf4j/slf4j-api]]]
+                 [ch.qos.logback/logback-classic "1.2.3" :exclusions [org.slf4j/slf4j-api]]
+                 [prismatic/schema "1.1.9"]
+                 [metosin/compojure-api "2.0.0-alpha31"]
+                 [ring/ring-jetty-adapter "1.9.4"]
+                 [ring/ring-defaults "0.3.2"]
+                 [clj-http "3.12.3"]]
   :main ^:skip-aot greenhouse.core
   :target-path "target/%s"
   :profiles {:uberjar {:aot :all}
              :dev {:source-paths ["dev" "src" "test"]
                    :dependencies [[org.clojure/tools.namespace "1.1.0"]
+                                  [org.clojure/java.jdbc "0.7.11"]
                                   [integrant/repl "0.3.2"]]}})
