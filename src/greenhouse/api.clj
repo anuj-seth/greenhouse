@@ -1,8 +1,7 @@
 (ns greenhouse.api
   (:require [clojure.java.jdbc :as jdbc]
             [greenhouse.api-helpers :as helpers]
-            [greenhouse.sql.accounts :as accounts]
-            [greenhouse.util :as util]))
+            [greenhouse.sql.accounts :as accounts]))
 
 (defn in-transaction
   [db f request-data]
@@ -88,10 +87,18 @@
 
 (defn transfer
   [params]
-  (util/dbg params)
   (until-err->> params
                 helpers/sender-and-recipient-not-same
                 withdraw
                 deposit
+                helpers/link-debit-and-credit
                 (partial helpers/fetch-balance-account-info
                          :debit-account)))
+
+(defn account-log
+  [params]
+  (until-err->> params
+                (partial helpers/check-and-maybe-lock-account
+                         :account
+                         false)
+                helpers/select-transactions))

@@ -8,23 +8,26 @@
             [ring.adapter.jetty :as jetty]
             [ring.util.http-response :as response]
             [ring.middleware.defaults :as middleware]
-            [greenhouse.api :as bank-api]
-            [greenhouse.util :as util]))
+            [greenhouse.api :as bank-api]))
 
 (defn request-validation-failed
   [f type]
   (fn [^Exception e data request]
     (f "Bad Request - request validation failed")))
 
+(defn- balance-response
+  [balance-key data]
+  (-> (balance-key data)
+      (select-keys [:id :name :balance])
+      (set/rename-keys {:id :account-number})))
+
 (defn call-api
   [{:keys [database]} api-fn in-data response-fn]
   (let [{:keys [status data] :as response} (bank-api/in-transaction database
                                                                     api-fn
-                                                                    (util/dbg in-data))]
+                                                                    in-data)]
     (if (= status :ok)
-      (response/ok (-> (response-fn (util/dbg data))
-                       (select-keys [:id :name :balance])
-                       (set/rename-keys {:id :account-number})))
+      (response/ok (response-fn data))
       (response/bad-request (:error-msg response)))))
 
 (defn app-routes
@@ -44,13 +47,13 @@
        (call-api config
                  bank-api/create-account
                  {:account req}
-                 :account))
+                 (partial balance-response :account)))
      (GET "/account/:id" []
        :path-params [id :- s/Int]
        (call-api config
                  bank-api/view-account
                  {:account {:id id}}
-                 :account))
+                 (partial balance-response :account)))
      (POST "/account/:id/deposit" []
        :path-params [id :- s/Int]
        :body-params [amount :- s/Num]
@@ -58,7 +61,7 @@
                  bank-api/deposit-and-return-balance
                  {:credit-account {:id id
                                    :amount amount}}
-                 :credit-account))
+                 (partial balance-response :credit-account)))
      (POST "/account/:id/withdraw" []
        :path-params [id :- s/Int]
        :body-params [amount :- s/Num]
@@ -66,7 +69,7 @@
                  bank-api/withdraw-and-return-balance
                  {:debit-account {:id id
                                   :amount amount}}
-                 :debit-account))
+                 (partial balance-response :debit-account)))
      (POST "/account/:id/send" []
        :path-params [id :- s/Int]
        :body-params [amount :- s/Num
@@ -77,7 +80,13 @@
                                   :amount amount}
                   :credit-account {:id account-number
                                    :amount amount}}
-                 :debit-account)))))
+                 (partial balance-response :debit-account)))
+     (GET "/account/:id/audit" []
+       :path-params [id :- s/Int]
+       (call-api config
+                 bank-api/account-log
+                 {:account {:id id}}
+                 :account-log)))))
 
 (defmethod ig/init-key :greenhouse/httpd
   [_ {:keys [port] :as config}]

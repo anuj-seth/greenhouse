@@ -1,4 +1,4 @@
-(ns greenhouse.create-user-test
+(ns greenhouse.integration-test
   (:require [clojure.test :refer :all]
             [clj-http.client :as http]
             [cheshire.core :as json]
@@ -42,7 +42,6 @@
                                              (assoc http-params
                                                     :body req-body))
             {:keys [account-number name balance]} body]
-        (util/dbg body)
         (is (= status 200))
         (is (= name "Mr. Black"))
         (is (= account-number account-id))
@@ -55,7 +54,6 @@
                                              (assoc http-params
                                                     :body req-body))
             {:keys [account-number name balance]} body]
-        (util/dbg body)
         (is (= status 200))
         (is (= name "Mr. Black"))
         (is (= account-number account-id))
@@ -68,7 +66,6 @@
                                              (assoc http-params
                                                     :body req-body))
             {:keys [account-number name balance]} body]
-        (util/dbg body)
         (is (= status 400))
         (is (= body "Not enough balance"))))
     (testing "create Mr. White's account"
@@ -105,11 +102,35 @@
                                              (assoc http-params
                                                     :body req-body))
             {:keys [account-number name balance]} body]
-        (util/dbg body)
         (is (= status 200))
         (is (= account-number mr-blacks-account))
         (is (= name "Mr. Black"))
-        (is (zero? (compare balance 25)))))))
+        (is (zero? (compare balance 25)))))
+    (testing "send 10 from Mr. White to Mr. Black"
+      (let [mr-blacks-account (:account-id @test-data)
+            mr-whites-account (:recipient-account-id @test-data)
+            url (str "http://localhost:3000/account/" mr-whites-account "/send")
+            req-body (json/generate-string {:account-number mr-blacks-account
+                                            :amount 10})
+            {:keys [status body]} (http/post url
+                                             (assoc http-params
+                                                    :body req-body))
+            {:keys [account-number name balance]} body]
+        (is (= status 200))
+        (is (= account-number mr-whites-account))
+        (is (= name "Mr. White"))
+        (is (zero? (compare balance 15)))))
+    (testing "fetch Mr. Black's transaction log"
+      (let [mr-blacks-account (:account-id @test-data)
+            mr-whites-account (:recipient-account-id @test-data)
+            url (str "http://localhost:3000/account/" mr-blacks-account "/audit")
+            {:keys [status body]} (http/get url
+                                            http-params)]
+        (is (= status 200))
+        (is (= body [{:sequence 3 :description (str "receive from #" mr-whites-account) :credit 10.0}
+                     {:sequence 2 :description (str "send to #" mr-whites-account) :debit 25.0}
+                     {:sequence 1 :description "withdraw" :debit 50.0}
+                     {:sequence 0, :description "deposit" :credit 100.0}]))))))
 
 (deftest check-exception-scenarios
   (let [http-params {:content-type :json

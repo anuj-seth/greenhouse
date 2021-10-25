@@ -1,6 +1,5 @@
 (ns greenhouse.api-helpers
-  (:require [greenhouse.sql.accounts :as accounts]
-            [greenhouse.util :as util]))
+  (:require [greenhouse.sql.accounts :as accounts]))
 
 (defn insert-account
   [{:keys [db data] :as params}]
@@ -54,10 +53,10 @@
 (defn add-transaction
   [account-key trx-type {:keys [db data] :as params}]
   (let [{:keys [id amount]} (data account-key)
-        {:keys [transaction-id]} (util/dbg (accounts/insert-transaction db
-                                                                        {:account-id id
-                                                                         :transaction-type trx-type
-                                                                         :amount amount}))
+        {:keys [transaction-id]} (accounts/insert-transaction db
+                                                              {:account-id id
+                                                               :transaction-type trx-type
+                                                               :amount amount})
         updated-params (update-in params
                                   [:data account-key]
                                   assoc
@@ -66,7 +65,6 @@
 
 (defn check-sufficient-balance
   [{:keys [data] :as params}]
-  (util/dbg data)
   (let [{:keys [balance amount]} (:debit-account data)
         new-balance (- balance amount)]
     (if (>= new-balance 0)
@@ -80,3 +78,30 @@
     (if (= sender recipient)
       [nil "Sender and recipient cannot be same"]
       [params nil])))
+
+(defn link-debit-and-credit
+  [{:keys [data db] :as params}]
+  (let [{sender-id :id debit-id :transaction-id} (:debit-account data)
+        {receiver-id :id credit-id :transaction-id} (:credit-account data)]
+    (accounts/insert-fund-transfer db
+                                   {:debit-transaction-id debit-id
+                                    :credit-transaction-id credit-id
+                                    :sender-id sender-id
+                                    :receiver-id receiver-id})
+    [params nil]))
+
+(defn select-transactions
+  [{:keys [data db] :as params}]
+  (let [trxs (accounts/select-transactions db
+                                           {:account-id (get-in data
+                                                                [:account :id])})
+        account-log (map (fn [{:keys [amount transaction-type] :as trx}]
+                           (-> trx
+                               (assoc (keyword transaction-type) amount)
+                               (dissoc :amount
+                                       :transaction-type)))
+                         trxs)
+        updated-params (update params
+                               :data
+                               assoc :account-log account-log)]
+    [updated-params nil]))
