@@ -20,14 +20,25 @@ with current_balance as (
    where aoc.account_id = :account-id
          and aoc.latest = true
    group by aoc.account_id, aoc.amount)
-select acc.account_name,
+select acc.account_id,
+       acc.account_name,
        cb.balance_amount
   from bank.accounts acc
        join current_balance cb
            on cb.account_id = acc.account_id
  where acc.account_id = :account-id;
 
+-- :name insert-transaction :? :1
+insert into bank.account_transactions (account_id, transaction_type, amount)
+values (:account-id, :transaction-type, :amount)
+       returning transaction_id;
 
+-- :name select-and-maybe-lock-account :? :1
+select 1
+  from bank.accounts
+ where account_id = :account-id
+  -- ~ (if (:lock params) "for update")
+;
 
 -- insert into account_transactions (account_id, transaction_type, amount, transaction_date)
 -- values (11, 'credit', 100, now() + '1 day'::interval);

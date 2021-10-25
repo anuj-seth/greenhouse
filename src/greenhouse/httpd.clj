@@ -14,11 +14,18 @@
 (defn request-validation-failed
   [f type]
   (fn [^Exception e data request]
-    (f "Bad Request")))
+    (f "Bad Request - request validation failed")))
 
-(defn create-account
-  [config request]
-  request)
+(defn call-api
+  [{:keys [database]} api-fn in-data response-fn]
+  (let [{:keys [status data] :as response} (bank-api/in-transaction database
+                                                                    api-fn
+                                                                    in-data)]
+    (if (= status :ok)
+      (response/ok (-> (response-fn data)
+                       (select-keys [:id :name :balance])
+                       (set/rename-keys {:id :account-number})))
+      (response/bad-request (:error-msg response)))))
 
 (defn app-routes
   [config]
@@ -34,34 +41,32 @@
      :tags ["root"]
      (POST "/account" []
        :body [req {:name s/Str}]
-       (let [{:keys [status data] :as response} (bank-api/in-transaction (:database config)
-                                                                         bank-api/create-account
-                                                                         {:account req})]
-         (if (= status :ok)
-           (response/ok (-> (:account data)
-                            (select-keys [:id :name :balance])
-                            (set/rename-keys {:id :account-number})))
-           (response/bad-request (:error-msg response)))))
+       (call-api config
+                 bank-api/create-account
+                 {:account req}
+                 :account))
      (GET "/account/:id" []
        :path-params [id :- s/Int]
-       (let [{:keys [status data] :as response} (bank-api/in-transaction (:database config)
-                                                                         bank-api/view-account
-                                                                         {:account {:id id}})]
-         (if (= status :ok)
-           (response/ok (-> (:account data)
-                            (select-keys [:id :name :balance])
-                            (set/rename-keys {:id :account-number})))
-           (response/bad-request (:error-msg response)))))
+       (call-api config
+                 bank-api/view-account
+                 {:account {:id id}}
+                 :account))
      (POST "/account/:id/deposit" []
        :path-params [id :- s/Int]
-       (let [{:keys [status data] :as response} (bank-api/in-transaction (:database config)
-                                                                         bank-api/deposit
-                                                                         {:account {:id id}})]
-         (if (= status :ok)
-           (response/ok (-> (:account data)
-                            (select-keys [:id :name :balance])
-                            (set/rename-keys {:id :account-number})))
-           (response/bad-request (:error-msg response))))))))
+       :body-params [amount :- s/Num]
+       (call-api config
+                 bank-api/deposit-and-return-balance
+                 {:credit-account {:id id
+                                   :amount amount}}
+                 :credit-account))
+     (POST "/account/:id/withdraw" []
+       :path-params [id :- s/Int]
+       :body-params [amount :- s/Num]
+       (call-api config
+                 bank-api/withdraw-and-return-balance
+                 {:debit-account {:id id
+                                  :amount amount}}
+                 :debit-account)))))
 
 (defmethod ig/init-key :greenhouse/httpd
   [_ {:keys [port] :as config}]
