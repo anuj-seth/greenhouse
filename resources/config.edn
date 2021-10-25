@@ -4,5 +4,9 @@
                        :maximum-pool-size 10
                        :username "greendev"
                        :password "green"}
+ :greenhouse/ragtime {:migrate? true
+                      :ragtime-config {:database #ig/ref :greenhouse/postgres
+                                       :path "migrations"
+                                       :migrations-config {:migrations-table "bank.ragtime_migrations"}}}
  :greenhouse/httpd {:port 3000
                     :database #ig/ref :greenhouse/postgres}}
