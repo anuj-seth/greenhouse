@@ -73,3 +73,10 @@
       [params nil]
       [nil "Not enough balance"])))
 
+(defn sender-and-recipient-not-same
+  [{:keys [data] :as params}]
+  (let [{sender :id} (:debit-account data)
+        {recipient :id} (:credit-account data)]
+    (if (= sender recipient)
+      [nil "Sender and recipient cannot be same"]
+      [params nil])))

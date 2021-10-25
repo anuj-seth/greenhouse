@@ -6,34 +6,6 @@
 
 (def test-data (atom {}))
 
-(deftest check-exception-scenarios
-  (let [http-params {:content-type :json
-                     :throw-exceptions false
-                     :as :json}]
-    (testing "bad body while creating an account - name is a number"
-      (let [req-body (json/generate-string {:name 1})
-            {:keys [status body]} (http/post "http://localhost:3000/account"
-                                             (assoc http-params
-                                                    :body req-body))]
-        (is (= status 400))
-        (is (= body "Bad Request - request validation failed"))))
-    (testing "view non-existent account"
-      (let [account-id 12345678
-            url (str "http://localhost:3000/account/" account-id)
-            {:keys [status body] :as response} (http/get url
-                                                         http-params)]
-        (is (= status 400))
-        (is (= body "Account does not exist"))))
-    (testing "deposit to an account that does not exist"
-      (let [account-id 123456
-            url (str "http://localhost:3000/account/" account-id "/deposit")
-            req-body (json/generate-string {:amount 100})
-            {:keys [status body]} (http/post url
-                                             (assoc http-params
-                                                    :body req-body))]
-        (is (= status 400))
-        (is (= body "Account does not exist"))))))
-
 (deftest check-account-operations
   (let [http-params {:content-type :json
                      :throw-exceptions false
@@ -74,19 +46,114 @@
         (is (= status 200))
         (is (= name "Mr. Black"))
         (is (= account-number account-id))
-        (is (zero? (compare balance 100)))))))
+        (is (zero? (compare balance 100)))))
+    (testing "withdraw 50 from Mr. Black's account"
+      (let [req-body (json/generate-string {:amount 50})
+            account-id (:account-id @test-data)
+            url (str "http://localhost:3000/account/" account-id "/withdraw")
+            {:keys [status body]} (http/post url
+                                             (assoc http-params
+                                                    :body req-body))
+            {:keys [account-number name balance]} body]
+        (util/dbg body)
+        (is (= status 200))
+        (is (= name "Mr. Black"))
+        (is (= account-number account-id))
+        (is (zero? (compare balance 50)))))
+    (testing "withdraw more than balance from Mr. Black's account"
+      (let [req-body (json/generate-string {:amount 200})
+            account-id (:account-id @test-data)
+            url (str "http://localhost:3000/account/" account-id "/withdraw")
+            {:keys [status body]} (http/post url
+                                             (assoc http-params
+                                                    :body req-body))
+            {:keys [account-number name balance]} body]
+        (util/dbg body)
+        (is (= status 400))
+        (is (= body "Not enough balance"))))
+    (testing "create Mr. White's account"
+      (let [req-body (json/generate-string {:name "Mr. White"})
+            {:keys [status body] :as response} (http/post "http://localhost:3000/account"
+                                                          (assoc http-params
+                                                                 :body req-body))
+            {:keys [account-number name balance]} body]
+        (is (= status 200))
+        (is (= name "Mr. White"))
+        (is (zero? balance))
+        (is (int? account-number))
+        (swap! test-data assoc
+               :recipient-account-id
+               account-number)))
+    (testing "send more money than Mr. Black has to Mr. White"
+      (let [mr-blacks-account (:account-id @test-data)
+            mr-whites-account (:recipient-account-id @test-data)
+            url (str "http://localhost:3000/account/" mr-blacks-account "/send")
+            req-body (json/generate-string {:account-number mr-whites-account
+                                            :amount 100})
+            {:keys [status body]} (http/post url
+                                             (assoc http-params
+                                                    :body req-body))]
+        (is (= status 400))
+        (is (= body "Not enough balance"))))
+    (testing "send 25 from Mr. Black to Mr. White"
+      (let [mr-blacks-account (:account-id @test-data)
+            mr-whites-account (:recipient-account-id @test-data)
+            url (str "http://localhost:3000/account/" mr-blacks-account "/send")
+            req-body (json/generate-string {:account-number mr-whites-account
+                                            :amount 25})
+            {:keys [status body]} (http/post url
+                                             (assoc http-params
+                                                    :body req-body))
+            {:keys [account-number name balance]} body]
+        (util/dbg body)
+        (is (= status 200))
+        (is (= account-number mr-blacks-account))
+        (is (= name "Mr. Black"))
+        (is (zero? (compare balance 25)))))))
 
-;; (let [req-body (json/generate-string {:amount 100})
-;;       account-id (:account-id @test-data)
-;;       url (str "http://localhost:3000/account/" 1 "/withdraw")
-;;       {:keys [status body]} (http/post url
-;;                                        (assoc {:content-type :json
-;;                                                :throw-exceptions false
-;;                                                :as :json}
-;;                                               :body req-body))
-;;       {:keys [account-number name balance]} body]
-;;   (util/dbg body)
-;;   (is (= status 200))
-;;   (is (= name "Mr. Black"))
-;;   (is (= account-number account-id))
-;;   (is (zero? (compare balance 100))))
+(deftest check-exception-scenarios
+  (let [http-params {:content-type :json
+                     :throw-exceptions false
+                     :as :json}]
+    (testing "bad body while creating an account - name is a number"
+      (let [req-body (json/generate-string {:name 1})
+            {:keys [status body]} (http/post "http://localhost:3000/account"
+                                             (assoc http-params
+                                                    :body req-body))]
+        (is (= status 400))
+        (is (= body "Bad Request - request validation failed"))))
+    (testing "view non-existent account"
+      (let [account-id 12345678
+            url (str "http://localhost:3000/account/" account-id)
+            {:keys [status body] :as response} (http/get url
+                                                         http-params)]
+        (is (= status 400))
+        (is (= body "Account does not exist"))))
+    (testing "deposit to an account that does not exist"
+      (let [account-id 123456
+            url (str "http://localhost:3000/account/" account-id "/deposit")
+            req-body (json/generate-string {:amount 100})
+            {:keys [status body]} (http/post url
+                                             (assoc http-params
+                                                    :body req-body))]
+        (is (= status 400))
+        (is (= body "Account does not exist"))))
+    (testing "withdraw from an account that does not exist"
+      (let [account-id 123456
+            url (str "http://localhost:3000/account/" account-id "/withdraw")
+            req-body (json/generate-string {:amount 100})
+            {:keys [status body]} (http/post url
+                                             (assoc http-params
+                                                    :body req-body))]
+        (is (= status 400))
+        (is (= body "Account does not exist"))))
+    (testing "transfer money from an account to itself"
+      (let [account-id 123456
+            url (str "http://localhost:3000/account/" account-id "/send")
+            req-body (json/generate-string {:account-number account-id
+                                            :amount 100})
+            {:keys [status body]} (http/post url
+                                             (assoc http-params
+                                                    :body req-body))]
+        (is (= status 400))
+        (is (= body "Sender and recipient cannot be same"))))))

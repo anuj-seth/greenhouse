@@ -50,8 +50,7 @@
         [updated-params nil]))))
 
 (defn deposit
-  [{:keys [db data] :as params}]
-  (util/dbg data)
+  [params]
   (until-err->> params
                 (partial helpers/check-and-maybe-lock-account
                          :credit-account
@@ -61,16 +60,14 @@
                          "credit")))
 
 (defn deposit-and-return-balance
-  [{:keys [db data] :as params}]
-  (util/dbg data)
+  [params]
   (until-err->> params
                 deposit
                 (partial helpers/fetch-balance-account-info
                          :credit-account)))
 
 (defn withdraw
-  [{:keys [db data] :as params}]
-  (util/dbg data)
+  [params]
   (until-err->> params
                 (partial helpers/check-and-maybe-lock-account
                          :debit-account
@@ -83,26 +80,18 @@
                          "debit")))
 
 (defn withdraw-and-return-balance
-  [{:keys [db data] :as params}]
-  (util/dbg data)
+  [params]
   (until-err->> params
                 withdraw
                 (partial helpers/fetch-balance-account-info
                          :debit-account)))
 
-(comment
-  (let [db-spec {:dbtype "postgres"
-                 :host "localhost",
-                 :port "5432"
-                 :user "greendev",
-                 :password "green"
-                 :dbname "greenhouse"}]
-    (jdbc/with-db-transaction [tx db-spec]
-      (accounts/insert-account tx
-                               {:account-name "abc"})
-      (jdbc/db-set-rollback-only! tx)
-      "abcd"
-      ))
-
-  )
-
+(defn transfer
+  [params]
+  (util/dbg params)
+  (until-err->> params
+                helpers/sender-and-recipient-not-same
+                withdraw
+                deposit
+                (partial helpers/fetch-balance-account-info
+                         :debit-account)))

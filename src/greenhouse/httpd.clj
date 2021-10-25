@@ -20,9 +20,9 @@
   [{:keys [database]} api-fn in-data response-fn]
   (let [{:keys [status data] :as response} (bank-api/in-transaction database
                                                                     api-fn
-                                                                    in-data)]
+                                                                    (util/dbg in-data))]
     (if (= status :ok)
-      (response/ok (-> (response-fn data)
+      (response/ok (-> (response-fn (util/dbg data))
                        (select-keys [:id :name :balance])
                        (set/rename-keys {:id :account-number})))
       (response/bad-request (:error-msg response)))))
@@ -66,6 +66,17 @@
                  bank-api/withdraw-and-return-balance
                  {:debit-account {:id id
                                   :amount amount}}
+                 :debit-account))
+     (POST "/account/:id/send" []
+       :path-params [id :- s/Int]
+       :body-params [amount :- s/Num
+                     account-number :- s/Int]
+       (call-api config
+                 bank-api/transfer
+                 {:debit-account {:id id
+                                  :amount amount}
+                  :credit-account {:id account-number
+                                   :amount amount}}
                  :debit-account)))))
 
 (defmethod ig/init-key :greenhouse/httpd
