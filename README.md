@@ -37,7 +37,7 @@ You should have the following installed on your laptop
 4. The script will create a user in postgres called **greendev**.  
 5. A database called **greenhouse** and a schema in that database called **bank** will also be creatd. The **bank** schema will hold all our application tables.  
 2. If step 1 was successful you will have an empty database. 
-3. The application tables will be created when the migrations run as part of our process.  
+3. The application tables will be created when the migrations are run explicitly from the repl or automatically when the process is started from the jar.  
 
 #### Running a repl
 1. You can start a repl in the project by running `lein repl`  
